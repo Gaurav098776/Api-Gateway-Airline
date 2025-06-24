@@ -1,23 +1,25 @@
-const {UserRepository} =  require('../repositories')
-const { StatusCodes } = require('http-status-codes');
-const AppError = require('../utils/errors/app-error');
-const {Auth }  = require('../utils/common')
+const { UserRepository, RoleRepository } = require("../repositories");
+const { StatusCodes } = require("http-status-codes");
+const AppError = require("../utils/errors/app-error");
+const { Auth, Enums } = require("../utils/common");
 
-const userRepo =  new UserRepository();
+const userRepo = new UserRepository();
+const roleRepo = new RoleRepository();
 
-
-async function create (data) {
-    try {
+async function create(data) {
+  try {
     // console.log("inside services ",data)
     const user = await userRepo.create(data);
+    const role = await roleRepo.getRoleByName(Enums.USER_ROLES_ENUMS.CUSTOMER);
+    user.addRole(role);    // added default role in signup
     return user;
   } catch (error) {
     console.log(error);
-    
+
     if (
-        error.name === "SequelizeValidationError" ||
-        error.name === "SequelizeDatabaseError" ||
-        error.name === "SequelizeUniqueConstraintError"
+      error.name === "SequelizeValidationError" ||
+      error.name === "SequelizeDatabaseError" ||
+      error.name === "SequelizeUniqueConstraintError"
     ) {
       let explanation = [];
       error.errors.forEach((err) => {
@@ -32,60 +34,57 @@ async function create (data) {
   }
 }
 
-
 async function signin(data) {
-  try{
-    const user =  await userRepo.getUserByEmail(data.email);
-    if(!user){
-      throw new AppError('No user found for the given email', StatusCodes.NOT_FOUND);
+  try {
+    const user = await userRepo.getUserByEmail(data.email);
+    if (!user) {
+      throw new AppError(
+        "No user found for the given email",
+        StatusCodes.NOT_FOUND
+      );
     }
-    const passwordMatch = Auth.checkPassword(data.password, user.password)
-    if(!passwordMatch){
-      throw new AppError('Invalid Password', StatusCodes.BAD_REQUEST);
+    const passwordMatch = Auth.checkPassword(data.password, user.password);
+    if (!passwordMatch) {
+      throw new AppError("Invalid Password", StatusCodes.BAD_REQUEST);
     }
-    const jwt = Auth.createToken({id:user.id, email:user.email})
+    const jwt = Auth.createToken({ id: user.id, email: user.email });
     return jwt;
-  } catch(error){
-      if(error instanceof AppError) throw error;
-      console.log(error);
-      throw new AppError('Something went wrong', StatusCodes.INTERNAL_SERVER_ERROR);
+  } catch (error) {
+    if (error instanceof AppError) throw error;
+    console.log(error);
+    throw new AppError(
+      "Something went wrong",
+      StatusCodes.INTERNAL_SERVER_ERROR
+    );
   }
 }
-
 
 async function isAuthenticated(token) {
   try {
-    if(!token){
-       throw new AppError('Missing JWT token', StatusCodes.BAD_REQUEST);
+    if (!token) {
+      throw new AppError("Missing JWT token", StatusCodes.BAD_REQUEST);
     }
-    const response =  Auth.verifyToken(token)
-    const user =  await userRepo.get(response.id)
-    if(!user){
-       throw new AppError('No User found', StatusCodes.NOT_FOUND);
+    const response = Auth.verifyToken(token);
+    const user = await userRepo.get(response.id);
+    if (!user) {
+      throw new AppError("No User found", StatusCodes.NOT_FOUND);
     }
     return user.id;
   } catch (error) {
-    if(error instanceof AppError) throw error
-    if(error.name == 'JsonWebTokenError') {
-      throw new AppError('Invalid JWT token', StatusCodes.BAD_REQUEST)
+    if (error instanceof AppError) throw error;
+    if (error.name == "JsonWebTokenError") {
+      throw new AppError("Invalid JWT token", StatusCodes.BAD_REQUEST);
     }
-    if(error.name == 'TokenExpiredError'){
-      throw new AppError('JWT token expired', StatusCodes.BAD_REQUEST)
+    if (error.name == "TokenExpiredError") {
+      throw new AppError("JWT token expired", StatusCodes.BAD_REQUEST);
     }
     console.log(error);
-    throw new AppError('Something went wrong', StatusCodes.BAD_REQUEST)
-    
+    throw new AppError("Something went wrong", StatusCodes.BAD_REQUEST);
   }
 }
-
-
-
-
-
-
 
 module.exports = {
   create,
   signin,
-  isAuthenticated
-}
+  isAuthenticated,
+};
