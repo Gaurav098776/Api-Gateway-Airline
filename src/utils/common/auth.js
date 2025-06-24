@@ -16,6 +16,8 @@ const {ServerConfig} =  require('../../config')
 
  function createToken(input) {
   try {
+    console.log(ServerConfig.JWT_EXPIRY,'time');
+    
     return jwt.sign(input, ServerConfig.JWT_SECRET, {expiresIn : ServerConfig.JWT_EXPIRY})
   } catch (error) {
     console.log(error);
